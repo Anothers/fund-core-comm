@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+    "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.xiangtai.framework.core.mapper.OrgMapper">
+	<!-- 以下与实体类的中字段一致 -->
+	<sql id="selectId">
+		org_id,
+		org_name,
+		org_code,
+		up_org_id,
+		org_type,
+		description
+	</sql>
+	<select id="isExist2" parameterType="java.util.HashMap" resultType="com.xiangtai.framework.core.entity.OrgFormMap" >
+		SELECT
+		<include refid="selectId" />
+		FROM xt_org
+		WHERE
+		<if test="org_name != null and org_name != ''">
+			<if test="h_org_name != null and h_org_name != '' ">
+				org_name = '${org_name}' AND org_name != '${h_org_name}'
+				<if test="org_code != null and org_code != ''">
+					<if test="h_org_code != null and h_org_code != '' ">
+						AND org_code = '${org_code}' AND org_code != '${h_org_code}'
+					</if>
+				</if>
+			</if>
+		</if>
+
+		<if test="org_code != null and org_code != ''">
+			<if test="h_org_code != null and h_org_code != '' ">
+				  org_code = '${org_code}' AND org_code != '${h_org_code}'
+			</if>
+		</if>
+
+	</select>
+</mapper>

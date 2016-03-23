@@ -1,0 +1,224 @@
+package com.xiangtai.framework.core.controller.system;
+
+
+import java.io.IOException;
+import java.util.List;
+import java.util.Map;
+
+import javax.inject.Inject;
+import javax.servlet.http.HttpServletResponse;
+
+import org.springframework.stereotype.Controller;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.ui.Model;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.ResponseBody;
+
+import com.xiangtai.framework.core.annotation.SystemLog;
+import com.xiangtai.framework.core.controller.index.BaseController;
+import com.xiangtai.framework.core.entity.ResUserFormMap;
+import com.xiangtai.framework.core.entity.UserFormMap;
+import com.xiangtai.framework.core.entity.UserGroupsFormMap;
+import com.xiangtai.framework.core.exception.SystemException;
+import com.xiangtai.framework.core.mapper.ResourcesMapper;
+import com.xiangtai.framework.core.mapper.UserMapper;
+import com.xiangtai.framework.core.plugin.PageView;
+import com.xiangtai.framework.core.util.Common;
+import com.xiangtai.framework.core.util.JsonUtils;
+import com.xiangtai.framework.core.util.POIUtils;
+import com.xiangtai.framework.core.util.PasswordHelper;
+
+/**
+ * 
+ * @author xiangtai 2014-11-19
+ *
+ * @version 3.0v
+ */
+@Controller
+@RequestMapping("/user/")
+public class UserController extends BaseController {
+	@Inject
+	private UserMapper userMapper;
+    @Inject
+    private ResourcesMapper resourcesMapper;
+	
+	@RequestMapping("list")
+	public String listUI(Model model) throws Exception {
+		model.addAttribute("res", findByRes());
+		return Common.BACKGROUND_PATH + "/system/user/list";
+	}
+
+	@ResponseBody
+	@RequestMapping("findByPage")
+	public PageView findByPage( String pageNow,
+			String pageSize,String column,String sort) throws Exception {
+		UserFormMap userFormMap = getFormMap(UserFormMap.class);
+		userFormMap=toFormMap(userFormMap, pageNow, pageSize,userFormMap.getStr("orderby"));
+		userFormMap.put("column", column);
+		userFormMap.put("sort", sort);
+        pageView.setRecords(userMapper.findUserPage(userFormMap));//不调用默认分页,调用自已的mapper中findUserPage
+        return pageView;
+	}
+	
+	@RequestMapping("/export")
+	public void download(HttpServletResponse response) throws IOException {
+		String fileName = "用户列表";
+		UserFormMap userFormMap = findHasHMap(UserFormMap.class);
+		//exportData = 
+		// [{"colkey":"sql_info","name":"SQL语句","hide":false},
+		// {"colkey":"total_time","name":"总响应时长","hide":false},
+		// {"colkey":"avg_time","name":"平均响应时长","hide":false},
+		// {"colkey":"record_time","name":"记录时间","hide":false},
+		// {"colkey":"call_count","name":"请求次数","hide":false}
+		// ]
+		String exportData = userFormMap.getStr("exportData");// 列表头的json字符串
+
+		List<Map<String, Object>> listMap = JsonUtils.parseJSONList(exportData);
+
+		List<UserFormMap> lis = userMapper.findUserPage(userFormMap);
+		POIUtils.exportToExcel(response, listMap, lis, fileName);
+	}
+
+	@RequestMapping("addUI")
+	public String addUI() throws Exception {
+		return Common.BACKGROUND_PATH + "/system/user/add";
+	}
+
+	@ResponseBody
+	@RequestMapping("addEntity")
+	@SystemLog(module="系统管理",methods="用户管理-新增用户")//凡需要处理业务逻辑的.都需要记录操作日志
+	@Transactional(readOnly=false)//需要事务操作必须加入此注解
+	public String addEntity(String txtGroupsSelect){
+		try {
+			UserFormMap userFormMap = getFormMap(UserFormMap.class);
+			userFormMap.put("txtGroupsSelect", txtGroupsSelect);
+			PasswordHelper passwordHelper = new PasswordHelper();
+			userFormMap.set("password","123456789");
+			passwordHelper.encryptPassword(userFormMap);
+			userMapper.addEntity(userFormMap);//新增后返回新增信息
+			if (!Common.isEmpty(txtGroupsSelect)) {
+				String[] txt = txtGroupsSelect.split(",");
+				UserGroupsFormMap userGroupsFormMap = new UserGroupsFormMap();
+				for (String roleId : txt) {
+					userGroupsFormMap.put("userId", userFormMap.get("id"));
+					userGroupsFormMap.put("roleId", roleId);
+					userMapper.addEntity(userGroupsFormMap);
+				}
+			}
+		} catch (Exception e) {
+			 throw new SystemException("添加账号异常");
+		}
+		return "success";
+	}
+
+	@ResponseBody
+	@RequestMapping("deleteEntity")
+	@Transactional(readOnly=false)//需要事务操作必须加入此注解
+	@SystemLog(module="系统管理",methods="用户管理-删除用户")//凡需要处理业务逻辑的.都需要记录操作日志
+	public String deleteEntity() throws Exception {
+		String[] ids = getParaValues("ids");
+		for (String id : ids) {
+			userMapper.deleteByAttribute("userId", id, UserGroupsFormMap.class);
+			userMapper.deleteByAttribute("userId", id, ResUserFormMap.class);
+			userMapper.deleteByAttribute("id", id, UserFormMap.class);
+		}
+		return "success";
+	}
+
+	@RequestMapping("editUI")
+	public String editUI(Model model) throws Exception {
+		UserFormMap userFormMap = getFormMap(UserFormMap.class);
+		String id = getPara("id");
+		if(Common.isNotEmpty(id)){
+			userFormMap.put("id",id);
+			model.addAttribute("user", userMapper.findUserById(userFormMap));
+		}
+		return Common.BACKGROUND_PATH + "/system/user/edit";
+	}
+
+	@ResponseBody
+	@RequestMapping("editEntity")
+	@Transactional(readOnly=false)//需要事务操作必须加入此注解
+	@SystemLog(module="系统管理",methods="用户管理-修改用户")//凡需要处理业务逻辑的.都需要记录操作日志
+	public String editEntity(String txtGroupsSelect) throws Exception {
+		UserFormMap userFormMap = getFormMap(UserFormMap.class);
+		userFormMap.put("txtGroupsSelect", txtGroupsSelect);
+		userMapper.editEntity(userFormMap);
+		userMapper.deleteByAttribute("userId", userFormMap.get("id")+"", UserGroupsFormMap.class);
+        //删除用户资源表原有信息
+        userMapper.deleteByAttribute("userId", userFormMap.get("id")+"", ResUserFormMap.class);
+
+        if(!Common.isEmpty(txtGroupsSelect)){
+			String[] txt = txtGroupsSelect.split(",");
+			for (String roleId : txt) {
+				UserGroupsFormMap userGroupsFormMap = new UserGroupsFormMap();
+				userGroupsFormMap.put("userId", userFormMap.get("id"));
+				userGroupsFormMap.put("roleId", roleId);
+                //删除原有该用户
+                List<ResUserFormMap> reList = resourcesMapper.findRoleReByRoleId(userGroupsFormMap);
+                if (null != reList && reList.size()>0){
+                    //插入对应的权限类型
+					for (ResUserFormMap aReList : reList) {
+						aReList.put("type", "02");
+						aReList.put("userId", userFormMap.get("id"));
+						aReList.remove("id");
+
+					}
+                    resourcesMapper.batchSave(reList);
+                }
+
+				userMapper.addEntity(userGroupsFormMap);
+			}
+		}
+		return "success";
+	}
+	/**
+	 * 验证账号是否存在
+	 *
+	 *@author xiangtai
+	 */
+	@RequestMapping("isExist")
+	@ResponseBody
+	public boolean isExist(String name) {
+		UserFormMap account = userMapper.findbyFrist("accountName", name, UserFormMap.class);
+		return account == null;
+	}
+	
+	//密码修改
+	@RequestMapping("updatePassword")
+	public String updatePassword() throws Exception {
+		return Common.BACKGROUND_PATH + "/system/user/updatePassword";
+	}
+	
+	//保存新密码
+	@RequestMapping("editPassword")
+	@ResponseBody
+	@Transactional(readOnly=false)//需要事务操作必须加入此注解
+	@SystemLog(module="系统管理",methods="用户管理-修改密码")//凡需要处理业务逻辑的.都需要记录操作日志
+	public String editPassword() throws Exception{
+		// 当验证都通过后，把用户信息放在session里
+		UserFormMap userFormMap = getFormMap(UserFormMap.class);
+		userFormMap.put("password", userFormMap.get("newpassword"));
+		//这里对修改的密码进行加密
+		PasswordHelper passwordHelper = new PasswordHelper();
+		passwordHelper.encryptPassword(userFormMap);
+		userMapper.editEntity(userFormMap);
+		return "success";
+	}
+	
+	/**
+     * 跳转到用户展示界面
+     *
+     * @return
+     */
+    @RequestMapping("userView")
+    public String userView(Model model) {
+    	String user_id = getPara("user_id");
+        if(Common.isNotEmpty(user_id)){
+        	UserFormMap userFormMap = new UserFormMap();
+			userFormMap.put("id", user_id);
+            model.addAttribute("user", userMapper.findUserById(userFormMap));
+        }
+        return Common.BACKGROUND_PATH + "/system/user/view";
+    }
+}

@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+    "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.xiangtai.framework.core.mapper.HolidayMapper">
+	<!-- 以下与实体类的中字段一致 -->
+	<sql id="selectId">
+		holiday_sn,
+		st_dt,
+		end_dt,
+		days,
+		create_time,
+		state,
+		holiday_name
+	</sql>
+	<!-- 查询假期 -->
+	<select id="findHoliday" resultType="com.xiangtai.framework.core.entity.HolidayFormMap">
+	select 
+	<include refid="selectId"/>
+	 from xt_holiday_info io
+	 <![CDATA[
+		where  io.st_dt <= '${day}'  and io.end_dt>= '${day}'    
+	 ]]>
+	</select>
+</mapper>

@@ -1,0 +1,10 @@
+org/apache/ibatis/mapping/ResultMapping$1.class
+org/apache/ibatis/mapping/Discriminator$1.class
+org/apache/ibatis/mapping/ParameterMap$1.class
+org/apache/ibatis/session/SqlSessionManager$1.class
+org/apache/ibatis/mapping/MappedStatement$1.class
+org/apache/ibatis/mapping/ParameterMapping$1.class
+org/apache/ibatis/mapping/ResultMap$1.class
+org/apache/ibatis/executor/statement/RoutingStatementHandler$1.class
+org/apache/ibatis/jdbc/AbstractSQL$1.class
+org/apache/ibatis/executor/resultset/DefaultResultSetHandler$1.class
