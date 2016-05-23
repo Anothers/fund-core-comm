@@ -20,7 +20,7 @@
     <properties>
 		<springframework-version>4.1.4.RELEASE</springframework-version>
 		<shiro.version>1.2.3</shiro.version>
-		<slf4j-version>1.7.6</slf4j-version>
+		<slf4j-version>1.7.5</slf4j-version>
 		<log4j-version>1.2.17</log4j-version>
         <poi.version>3.10-FINAL</poi.version>
 		<mysql-connector-version>5.1.29</mysql-connector-version>
